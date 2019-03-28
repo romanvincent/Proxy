@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_URI'][1]=='!'){   //识别是否需要代理其它网站
 
 /* Google必须https */
 if($mirror == "$X_DHOST" && $_SERVER['REQUEST_SCHEME'] == "http" ) {
-    header('Location: https://$X_WWWHOST/'); die; 
+    header('Location: https://'.$X_WWWHOST.'/'); die; 
 }
 
 /* 获取http请求头,并构造 */
