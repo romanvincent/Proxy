@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 #-*- coding:utf-8 -*-
 # socks5原理：https://hatboy.github.io/2018/04/28/Python编写socks5服务器/
-# https://github.com/xinroom
+
+#
 
 import socket
 from socketserver import StreamRequestHandler, ThreadingTCPServer
@@ -12,20 +13,14 @@ from time import strftime
 import requests
 import binascii
 
-LADDR = "0.0.0.0"                   #本地监听IP地址
-LPORT  = 1080                       #本地端口
-SOCKS_VERSION = 5                   #SOCKS版本号
-DEBUG = False                       #需要显示debug日志码
-ID = 1000                           #会话ID基础值
+LADDR = "0.0.0.0"
+LPORT  = 1080
+SOCKS_VERSION = 5
+DEBUG = False
+ID = 1000
+socket.setdefaulttimeout(10)
 
-
-RSCHEME = "https://"                #与中间服务器传输的协议
-RHOST = "xxx.xxx.xxx"               #中间服务器域名
-RKPATH = "/ss/skc.php"              #中间服务器C端文件路径
-RSPATH = "/ss/sks.php"              #中间服务器S端文件路径
-RPOST = 443                         #中间服务器端口
-RURL = RSCHEME + RHOST + RKPATH
-
+RURL = "http://172.16.80.130/sk5.php"
 RPWD = "c!&54s@d5f#@%*-"
 
 lock=Lock()
@@ -85,17 +80,15 @@ class Socks5(StreamRequestHandler):
             reply = struct.pack("!BBBBIH", SOCKS_VERSION, 5, 0, ATYP, 0, 0) # 响应 连接被拒绝 错误
         self.connection.sendall(reply)
         
-        # 建立连接成功，开始交换数据
         if reply[1] == 0 and CMD == 1:
             remote=(DstAddr, str(DstPort))
-            self.SConnect(remote)           #建立会话，远程S端开启
             self.Exchange_loop(self.connection, remote)
         self.server.close_request(self.request)
 
         
     def Exchange_loop(self, client, remote):
         '''开始交换数据'''
-        
+
         Logs(self.id, 'D', 'Exchange...')
         headers={
             'User-Agent':'XinApp/1.0',
@@ -115,40 +108,11 @@ class Socks5(StreamRequestHandler):
             if client in r:
                 data = client.recv(4096)
                 rr = s.post(url=RURL, data=data, stream=True)
-                #print(binascii.b2a_hex(data).upper())
-                #print(data)
                 if len(data) == 0 or len(rr.content) == 0:
                     break
-
                 for chunk in rr.iter_content(chunk_size=4096):
                     data=chunk
-                    #print(binascii.b2a_hex(data).upper())
-                    #print(data)
                     client.send(data)
-
-        #temp = self.Ssession.recv(20480)
-        #print(temp)
-
-
-    def SConnect(self, Rinfo):
-        header = 'POST %s HTTP/1.1\r\n' % RSPATH + \
-                'Host: %s\r\n' % RHOST + \
-                'User-Agent: XinApp/1.0\r\n' + \
-                'Accept: */*\r\n' + \
-                'Xin-Type: xin-con\r\n' + \
-                'Xin-Host: %s\r\n' % Rinfo[0] + \
-                'Xin-Port: %s\r\n' % Rinfo[1] + \
-                'Xin-Pwd: %s\r\n' % RPWD + \
-                'Xin-Id: %d\r\n' % self.id + \
-                'Connection: keep-alive\r\n' + \
-                'Content-Type: application/xin-binary\r\n' + \
-                'Content-Length: 0\r\n' + \
-                '\r\n'
-        data = header.encode()
-        re = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        re.connect((socket.gethostbyname(RHOST), RPOST))
-        re.sendall(data)
-        self.Ssession = re
 
 
     def handle(self):
