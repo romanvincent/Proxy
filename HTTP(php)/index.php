@@ -1,12 +1,13 @@
 <?php
-//HTTP代理(网页版)
-//error_reporting(E_ALL);
-ini_set("zlib.output_compression", "On");
-ini_set("zlib.output_compression_level", "5");
 
-$X_WWWHOST = "***";  //网站域名
-$X_DHOST = "***";   //默认代理域名
-$X_DTYPE = "text/html"; //默认页面mate
+//error_reporting(E_ALL);
+//ini_set("zlib.output_compression", "On");
+//ini_set("zlib.output_compression_level", "4");
+
+$X_WWWHOST = '***';  //网站域名
+$X_DHOST = '***';   //默认代理域名
+$X_SCHEME = 'https';
+$X_DTYPE = 'text/html'; //默认页面mate
 
 
 //身份验证
@@ -27,7 +28,7 @@ if ($_COOKIE["anthCookie"] != "#hjhdjs45%^fyt%"){
 $PATH = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 switch ($PATH){
     case "/set":
-        setcookie("name", $_GET['n'], time()+3600, "/", $X_WWWHOST, NULL, 1);
+        setcookie("host", $_GET['n'], time()+3600, "/", $X_WWWHOST, NULL, 1);
         header('Location: https://'. $X_WWWHOST .'/');
         die;
     case "/c":
@@ -38,7 +39,7 @@ switch ($PATH){
 
 
 //基本处理
-isset($_COOKIE["name"]) && setcookie("name", $_COOKIE["name"], time()+3600, "/", $X_WWWHOST, NULL, 1);//NameCookie续租
+isset($_COOKIE["host"]) && setcookie("host", $_COOKIE["host"], time()+3600, "/", $X_WWWHOST, NULL, 1);//hostCookie续租
 header('Referrer-Policy: same-origin'); //禁止referrer no-referrer
 //END
 
@@ -50,17 +51,29 @@ $arrlength=count($blok);
 for($x=0;$x<$arrlength;$x++) {
   if (strpos($_SERVER['REQUEST_URI'], $blok[$x]) !== FALSE){
        header('HTTP/1.1 404 Not Found');
-       die; break;
+       die;
   }
 }
 //END
 
 
 //Proxy链接构造
-$mirror = isset($_COOKIE["name"]) ? $_COOKIE["name"] : $X_DHOST;//默认域名
+$mirror = isset($_COOKIE["host"]) ? $_COOKIE["host"] : $X_DHOST;//默认域名
+
 $url_path = $_SERVER['REQUEST_URI'];
-if ($_SERVER['REQUEST_URI'][1]=='!'){   //识别是否需要代理其它网站
-    $url = "https://". substr($_SERVER['REQUEST_URI'], 2);
+if ($url_path[1]=='!'){   //识别是否需要代理其它网站
+
+    if (substr($url_path, 2, 6) == 'https:') {
+        $X_SCHEME = 'https';
+        $url_path = substr($url_path, 10);
+    } else if (substr($url_path, 2, 5) == 'http:') {
+        $X_SCHEME = 'http';
+        $url_path = substr($url_path, 9);
+    } else {
+        $url_path = substr($url_path, 2);
+    }
+
+    $url = "https://". $url_path;
     $url = str_replace( '.comm', '.com', $url);
     $url = parse_url($url);
     $mirror = $url["host"];
@@ -69,9 +82,9 @@ if ($_SERVER['REQUEST_URI'][1]=='!'){   //识别是否需要代理其它网站
     $url_path = $url["path"] . $url["query"];
 }
 
-/* Google必须https */
-if($mirror == "$X_DHOST" && $_SERVER['REQUEST_SCHEME'] == "http" ) {
-    header('Location: https://'.$X_WWWHOST.'/'); die; 
+/* 默认必须https */
+if($mirror == $X_DHOST && $_SERVER['REQUEST_SCHEME'] == "http" ) {
+    //header('Location: https://'.$X_WWWHOST.'/'); die; 
 }
 
 /* 获取http请求头,并构造 */
@@ -92,7 +105,7 @@ foreach ($_SERVER as $k => $v) {
     }
 }
 $headers[] = 'Referer: ' . $mirror;
-$url =  $_SERVER['REQUEST_SCHEME'] . "://" . $mirror . $url_path; //curl 要请求的url
+$url =  $X_SCHEME . "://" . $mirror . $url_path; //curl 要请求的url
 $response = bcurl($url, $headers);
 
 /* 处理response */
@@ -109,7 +122,7 @@ if (!$nlnl) {
 }
 
 $no_headers = array("Alt-Svc","Transfer-Encoding","Strict-Transport-Security");
-$headers = substr($response, 0, $nlnl); //'/^(.*?)(\r?\n|$)/ims'
+$headers = substr($response, 0, $nlnl);
 if (preg_match_all('/^(\S*?):\s(.*?)(\r?\n|$)/ims', $headers, $matches)) {
     for ($i = 0; $i < count($matches[0]); $i++) {
 
